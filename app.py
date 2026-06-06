@@ -102,7 +102,12 @@ def download():
     video_url = data.get('url')
     if not video_url:
         return jsonify({'success': False, 'error': 'No URL provided'}), 400
-    ydl_opts = {'format': 'best', 'quiet': True, 'no_warnings': True}
+        ydl_opts = {
+        'format': 'best', 
+        'quiet': True, 
+        'no_warnings': True,
+        'cookiefile': 'cookies.txt'      }
+
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(video_url, download=False)
