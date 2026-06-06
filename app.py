@@ -104,19 +104,14 @@ def download():
         return jsonify({'success': False, 'error': 'No URL provided'}), 400
         
     
-    ydl_opts = {
-        'format': 'best', 
-        'quiet': True, 
-        'no_warnings': True,
-        'extractor_args': {
-            'youtube': {
-                'player_client': ['android', 'web'],
-                'skip': ['dash', 'hls']
-            }
-        }
-    }
+  ydl_opts = {
+    'format': 'best',
+    'quiet': True,
+    'no_warnings': True,
+    'username': 'oauth2',  
+    'password': ''
+}
 
-    }
     
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
