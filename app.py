@@ -103,12 +103,19 @@ def download():
     if not video_url:
         return jsonify({'success': False, 'error': 'No URL provided'}), 400
         
-    # এখানে ydl_opts একদম পারফেক্টলি ডিফাইন করা হয়েছে
+    
     ydl_opts = {
         'format': 'best', 
         'quiet': True, 
         'no_warnings': True,
-        'cookiefile': 'cookies.txt'
+        'extractor_args': {
+            'youtube': {
+                'player_client': ['android', 'web'],
+                'skip': ['dash', 'hls']
+            }
+        }
+    }
+
     }
     
     try:
