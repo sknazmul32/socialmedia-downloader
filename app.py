@@ -1,6 +1,5 @@
 from flask import Flask, render_template_string, request, jsonify
 from flask_cors import CORS
-import requests
 
 app = Flask(__name__)
 CORS(app)
@@ -48,7 +47,7 @@ HTML_TEMPLATE = """
             <p>Extracting video links, please wait...</p>
         </div>
         <div id="result">
-            <h3 id="videoTitle"></h3>
+            <h3 id="videoTitle">Select Format to Download</h3>
             <div id="downloadLinks" class="download-links"></div>
         </div>
     </div>
@@ -59,33 +58,53 @@ HTML_TEMPLATE = """
             const loading = document.getElementById('loading');
             const result = document.getElementById('result');
             const downloadLinks = document.getElementById('downloadLinks');
-            const videoTitle = document.getElementById('videoTitle');
             if (!urlInput) { alert('Please paste a valid URL!'); return; }
+            
             result.style.display = 'none';
             loading.style.display = 'block';
             btnText.disabled = true;
             downloadLinks.innerHTML = '';
+            
             try {
-                const response = await fetch('/api/download', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url: urlInput })
+                // সরাসরি ক্লায়েন্ট সাইড থেকে ফ্রি কোবাল্ট এপিআই রিকোয়েস্ট
+                const response = await fetch("https://cobalt.tools", {
+                    method: "POST",
+                    headers: {
+                        "Accept": "application/json",
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({ url: urlInput, vQuality: "720" })
                 });
+                
                 const data = await response.json();
-                if (data.success) {
-                    videoTitle.innerText = data.title;
-                    data.formats.forEach(format => {
+                
+                if (response.ok && data.status === 'stream') {
+                    const btn = document.createElement('a');
+                    btn.href = data.url;
+                    btn.target = '_blank';
+                    btn.className = 'dl-btn';
+                    btn.innerHTML = `<span>Download Video (Best Quality)</span> <span class="badge">MP4</span>`;
+                    downloadLinks.appendChild(btn);
+                    result.style.display = 'block';
+                } else if (data.status === 'picker') {
+                    data.picker.forEach(item => {
                         const btn = document.createElement('a');
-                        btn.href = format.url;
+                        btn.href = item.url;
                         btn.target = '_blank';
                         btn.className = 'dl-btn';
-                        btn.innerHTML = `<span>Download (${format.quality})</span> <span class="badge">${format.ext}</span>`;
+                        btn.innerHTML = `<span>Download ${item.type || 'Media'} (${item.quality || 'Default'})</span> <span class="badge">Link</span>`;
                         downloadLinks.appendChild(btn);
                     });
                     result.style.display = 'block';
-                } else { alert('Error: ' + data.error); }
-            } catch (err) { alert('Something went wrong. Please try again.'); }
-            finally { loading.style.display = 'none'; btnText.disabled = false; }
+                } else {
+                    alert('Error: ' + (data.text || 'Could not parse video link'));
+                }
+            } catch (err) {
+                alert('Something went wrong. Please try again.');
+            } finally {
+                loading.style.display = 'none';
+                btnText.disabled = false;
+            }
         }
     </script>
 </body>
@@ -98,46 +117,8 @@ def home():
 
 @app.route('/api/download', methods=['POST'])
 def download():
-    data = request.get_json() or {}
-    video_url = data.get('url')
-    if not video_url:
-        return jsonify({'success': False, 'error': 'No URL provided'}), 400
-        
-    try:
-        # ফ্রি অল-ইন-ওয়ান ডাউনলোডার থার্ড-পার্টি API রিকোয়েস্ট
-        api_url = f"https://cobalt.tools"
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "url": video_url,
-            "vQuality": "720"
-        }
-        
-        response = requests.post(api_url, json=payload, headers=headers)
-        res_data = response.json()
-        
-        if response.status_code == 200 and res_data.get('status') == 'stream':
-            download_url = res_data.get('url')
-            # আমাদের ফ্রন্টএন্ড ফরম্যাটের সাথে মিলানো
-            formats_list = [{'quality': '720p HD / Best', 'ext': 'mp4', 'url': download_url}]
-            return jsonify({'success': True, 'title': 'Extracted Video', 'formats': formats_list})
-        elif res_data.get('status') == 'picker':
-            # যদি একাধিক কোয়ালিটি অপশন থাকে
-            formats_list = []
-            for item in res_data.get('picker', []):
-                formats_list.append({
-                    'quality': item.get('type', 'Video') + ' ' + item.get('quality', ''),
-                    'ext': 'media',
-                    'url': item.get('url')
-                })
-            return jsonify({'success': True, 'title': 'Select Format to Download', 'formats': formats_list})
-        else:
-            return jsonify({'success': False, 'error': res_data.get('text', 'Could not parse video link')}), 400
-            
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
+    # ব্যাকএন্ড এখন একদম খালি ও পারফেক্ট থাকবে
+    return jsonify({'success': True})
 
 if __name__ == '__main__':
     app.run(debug=True, port=5000)
