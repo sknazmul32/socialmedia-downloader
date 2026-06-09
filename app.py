@@ -1,6 +1,6 @@
 from flask import Flask, render_template_string, request, jsonify
 from flask_cors import CORS
-import yt_dlp
+import requests
 
 app = Flask(__name__)
 CORS(app)
@@ -103,29 +103,39 @@ def download():
     if not video_url:
         return jsonify({'success': False, 'error': 'No URL provided'}), 400
         
-       ydl_opts = {
-        'format': 'best',
-        'quiet': True,
-        'no_warnings': True,
-        'cookiefile': 'cookies.txt' 
-
-    }
-    
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(video_url, download=False)
-            title = info.get('title', 'Video')
+        # ফ্রি অল-ইন-ওয়ান ডাউনলোডার থার্ড-পার্টি API রিকোয়েস্ট
+        api_url = f"https://cobalt.tools"
+        headers = {
+            "Accept": "application/json",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "url": video_url,
+            "vQuality": "720"
+        }
+        
+        response = requests.post(api_url, json=payload, headers=headers)
+        res_data = response.json()
+        
+        if response.status_code == 200 and res_data.get('status') == 'stream':
+            download_url = res_data.get('url')
+            # আমাদের ফ্রন্টএন্ড ফরম্যাটের সাথে মিলানো
+            formats_list = [{'quality': '720p HD / Best', 'ext': 'mp4', 'url': download_url}]
+            return jsonify({'success': True, 'title': 'Extracted Video', 'formats': formats_list})
+        elif res_data.get('status') == 'picker':
+            # যদি একাধিক কোয়ালিটি অপশন থাকে
             formats_list = []
-            if 'formats' in info:
-                valid_formats = [f for f in info['formats'] if f.get('acodec') != 'none' and f.get('vcodec') != 'none' and f.get('url')]
-                if not valid_formats:
-                    formats_list.append({'quality': 'Standard Quality', 'ext': info.get('ext', 'mp4'), 'url': info.get('url')})
-                else:
-                    for f in valid_formats[-3:]:
-                        formats_list.append({'quality': f.get('format_note', 'HD') or f.get('resolution', 'Default'), 'ext': f.get('ext', 'mp4'), 'url': f['url']})
-            else:
-                formats_list.append({'quality': 'Direct Link', 'ext': info.get('ext', 'mp4'), 'url': info.get('url')})
-            return jsonify({'success': True, 'title': title, 'formats': formats_list})
+            for item in res_data.get('picker', []):
+                formats_list.append({
+                    'quality': item.get('type', 'Video') + ' ' + item.get('quality', ''),
+                    'ext': 'media',
+                    'url': item.get('url')
+                })
+            return jsonify({'success': True, 'title': 'Select Format to Download', 'formats': formats_list})
+        else:
+            return jsonify({'success': False, 'error': res_data.get('text', 'Could not parse video link')}), 400
+            
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
