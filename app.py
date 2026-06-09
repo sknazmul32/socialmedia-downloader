@@ -103,12 +103,12 @@ def download():
     if not video_url:
         return jsonify({'success': False, 'error': 'No URL provided'}), 400
         
-    ydl_opts = {
+       ydl_opts = {
         'format': 'best',
         'quiet': True,
         'no_warnings': True,
-        'username': 'oauth2',
-        'password': ''
+        'cookiefile': 'cookies.txt' 
+
     }
     
     try:
